@@ -1,0 +1,69 @@
+{% capture vehicle_i18n %}{"configure":{{ 'lubrauto_vehicle.text.configure' | t | json }},"loading":{{ 'lubrauto_vehicle.text.loading' | t | json }},"invalid":{{ 'lubrauto_vehicle.text.invalid' | t | json }},"missing":{{ 'lubrauto_vehicle.text.missing' | t | json }},"limit":{{ 'lubrauto_vehicle.text.limit' | t | json }},"unavailable":{{ 'lubrauto_vehicle.text.unavailable' | t | json }},"success":{{ 'lubrauto_vehicle.text.success' | t | json }},"failed":{{ 'lubrauto_vehicle.text.failed' | t | json }},"note":{{ 'lubrauto_vehicle.text.note' | t | json }},"verify":{{ 'lubrauto_vehicle.text.verify' | t | json }},"manual":{{ 'lubrauto_vehicle.text.manual' | t | json }},"brand":{{ 'lubrauto_vehicle.text.brand' | t | json }},"model":{{ 'lubrauto_vehicle.text.model' | t | json }},"version":{{ 'lubrauto_vehicle.text.version' | t | json }},"fuel":{{ 'lubrauto_vehicle.text.fuel' | t | json }},"engine_code":{{ 'lubrauto_vehicle.text.engine_code' | t | json }},"displacement":{{ 'lubrauto_vehicle.text.displacement' | t | json }},"first_registration":{{ 'lubrauto_vehicle.text.first_registration' | t | json }}}{% endcapture %}
+<section class="lubrauto-vehicle" data-lubrauto-vehicle data-i18n="{{ vehicle_i18n | escape }}" data-endpoint="{{ section.settings.endpoint | escape }}">
+  <h2>{{ section.settings.title | escape }}</h2>
+  <p>{{ section.settings.description | escape }}</p>
+  <form>
+    <label for="plate-{{ section.id }}">{{ section.settings.label | escape }}</label>
+    <input id="plate-{{ section.id }}" name="plate" type="text" placeholder="AA-123-AA" maxlength="24" required autocapitalize="characters" autocomplete="off" spellcheck="false">
+    <button type="submit">{{ section.settings.button | escape }}</button>
+  </form>
+  <p role="status" aria-live="polite" data-status></p>
+  <div data-result hidden>
+    <h3 data-vehicle-title></h3>
+    <dl data-details></dl>
+    <p>{{ 'lubrauto_vehicle.text.note' | t }}</p>
+    <a href="{{ routes.root_url }}#la-vehicle">{{ 'lubrauto_vehicle.text.verify' | t }}</a>
+  </div>
+  <p><a href="{{ routes.root_url }}#la-vehicle">{{ 'lubrauto_vehicle.text.manual' | t }}</a></p>
+</section>
+{% javascript %}
+function initLubrautoVehicle() {
+  document.querySelectorAll('[data-lubrauto-vehicle]').forEach(root => {
+    if (root.dataset.ready) return;
+    root.dataset.ready = 'true';
+    const messages = JSON.parse(root.dataset.i18n);
+    const form = root.querySelector('form');
+    const input = form.elements.plate;
+    const button = form.querySelector('button');
+    const status = root.querySelector('[data-status]');
+    const result = root.querySelector('[data-result]');
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      result.hidden = true;
+      let endpoint;
+      try { endpoint = new URL(root.dataset.endpoint); if (endpoint.protocol !== 'https:') throw Error(); } catch { status.textContent = messages.configure; return; }
+      button.disabled = true;
+      status.textContent = messages.loading;
+      try {
+        const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'omit', body: JSON.stringify({ plate: input.value }), signal: AbortSignal.timeout(75000) });
+        if (!response.ok) {
+          status.textContent = response.status === 400 ? messages.invalid : response.status === 404 ? messages.missing : response.status === 429 ? messages.limit : messages.unavailable;
+          return;
+        }
+        const payload = await response.json();
+        if (!payload.vehicle || payload.compatibilityVerified !== false) throw Error();
+        const vehicle = payload.vehicle;
+        root.querySelector('[data-vehicle-title]').textContent = vehicle.label || [vehicle.brand, vehicle.model, vehicle.version].filter(Boolean).join(' ');
+        const details = root.querySelector('[data-details]');
+        details.replaceChildren();
+        for (const [key, label] of [['brand',messages.brand],['model',messages.model],['version',messages.version],['fuel',messages.fuel],['engineCode',messages.engine_code],['displacement',messages.displacement],['firstRegistration',messages.first_registration]]) {
+          if (!vehicle[key]) continue;
+          const term = document.createElement('dt'); const value = document.createElement('dd');
+          term.textContent = label; value.textContent = String(vehicle[key]); details.append(term, value);
+        }
+        result.hidden = false;
+        status.textContent = messages.success;
+      } catch { status.textContent = messages.failed; }
+      finally { button.disabled = false; }
+    });
+  });
+}
+initLubrautoVehicle();
+document.addEventListener('shopify:section:load', initLubrautoVehicle);
+{% endjavascript %}
+{% stylesheet %}
+.lubrauto-vehicle{background:#f3f6f9;color:#06233f;padding:32px;max-width:1250px;margin:24px auto;border-radius:8px}.lubrauto-vehicle form{display:flex;align-items:end;flex-wrap:wrap;gap:12px}.lubrauto-vehicle label{width:100%;font-weight:700}.lubrauto-vehicle input{padding:14px;border:1px solid #b0bfce;background:white;color:#06233f;border-radius:5px;min-width:0;width:min(100%,320px);text-transform:uppercase;letter-spacing:.08em}.lubrauto-vehicle button{padding:15px 24px;background:#ffcb05;color:#06233f;border:0;border-radius:5px;font-weight:700;cursor:pointer}.lubrauto-vehicle button:disabled{opacity:.6;cursor:wait}.lubrauto-vehicle dl{display:grid;grid-template-columns:1fr 2fr;gap:8px}.lubrauto-vehicle dt{font-weight:700}.lubrauto-vehicle dd{margin:0}.lubrauto-vehicle :focus-visible{outline:3px solid #2484c6;outline-offset:3px}@media(max-width:600px){.lubrauto-vehicle{padding:24px 16px}.lubrauto-vehicle input,.lubrauto-vehicle button{width:100%}}
+{% endstylesheet %}
+{% schema %}
+{"name":"Recherche plaque LUBRAUTO","settings":[{"type":"url","id":"endpoint","label":"URL sécurisée du relais /vehicle"},{"type":"text","id":"title","label":"Titre","default":"Identifiez votre véhicule par sa plaque"},{"type":"textarea","id":"description","label":"Description","default":"Votre plaque est transmise à Auto Ways Network pour identifier votre véhicule. Vous pouvez aussi demander une vérification manuelle à LUBRAUTO."},{"type":"text","id":"label","label":"Libellé du champ","default":"Immatriculation française"},{"type":"text","id":"button","label":"Bouton","default":"Identifier mon véhicule"}],"presets":[{"name":"Recherche plaque LUBRAUTO"}]}
+{% endschema %}
