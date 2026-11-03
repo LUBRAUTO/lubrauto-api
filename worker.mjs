@@ -112,18 +112,22 @@ export async function handleRequest(request, env, upstream = fetch) {
     const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(ip));
     const client = [...new Uint8Array(signature)].map(x => x.toString(16).padStart(2, '0')).join('');
     const guard = env.BUDGET.get(env.BUDGET.idFromName('lubrauto-awn-budget-v1'));
-    const reservation = await guard.fetch(new Request('https://budget.internal/reserve', { method: 'POST', body: JSON.stringify({ client }) }));
+    let reservation;
+    try { reservation = await guard.fetch(new Request('https://budget.internal/reserve', { method: 'POST', body: JSON.stringify({ client }) })); }
+    catch { console.error('quota_storage_failure'); return reply('service_unavailable', 503); }
     if (!reservation.ok) return reply('limit_reached', 429);
     const apiUrl = new URL(API);
     apiUrl.search = new URLSearchParams({ token: env.AWN_TOKEN, plaque: plate }).toString();
     const response = await upstream(apiUrl, { headers: { Accept: 'application/json' }, redirect: 'error', signal: AbortSignal.timeout(10000) });
+    if (!response.ok) console.error('provider_http_status', response.status);
     if (!response.ok) return reply(response.status === 404 ? 'vehicle_not_found' : 'provider_unavailable', response.status === 404 ? 404 : 502);
     const payload = await response.json();
+    if (Number(payload.code) !== 200 || payload.error) console.error('provider_envelope_code', Number.isFinite(Number(payload.code)) ? Number(payload.code) : -1);
     if (payload.error === true || payload.error === 'true' || Number(payload.code) !== 200 || !payload.data || typeof payload.data !== 'object') return reply(Number(payload.code) === 404 ? 'vehicle_not_found' : 'provider_unavailable', Number(payload.code) === 404 ? 404 : 502);
     const vehicle = vehicleFields(payload.data);
     if (!vehicle.label && !vehicle.brand && !vehicle.model) return reply('vehicle_not_found', 404);
     return Response.json({ vehicle, compatibilityVerified: false }, { headers });
-  } catch { return reply('provider_unavailable', 502); }
+  } catch { console.error('provider_request_failure'); return reply('provider_unavailable', 502); }
 }
 
 export default { fetch: (request, env) => handleRequest(request, env) };
