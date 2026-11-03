@@ -1,0 +1,24 @@
+{
+  "lubrauto_vehicle": {
+    "text": {
+      "configure": "La recherche automatique est en cours de configuration. Utilisez la demande de vérification ci-dessous.",
+      "loading": "Identification du véhicule…",
+      "invalid": "Vérifiez le format de votre plaque française.",
+      "missing": "Véhicule non trouvé. Demandez une vérification à LUBRAUTO.",
+      "limit": "Le plafond de recherches est atteint. Contactez LUBRAUTO pour une vérification.",
+      "unavailable": "Recherche indisponible. Utilisez la demande de vérification.",
+      "success": "Véhicule identifié. Vérifiez les informations ci-dessous.",
+      "failed": "La recherche n’a pas abouti. Utilisez la demande de vérification.",
+      "note": "Vérifiez ces informations. L’identification du véhicule ne confirme pas la compatibilité d’une pièce.",
+      "verify": "Demander la vérification d’une pièce",
+      "manual": "Recherche impossible ? Faites vérifier votre référence par LUBRAUTO.",
+      "brand": "Marque",
+      "model": "Modèle",
+      "version": "Version",
+      "fuel": "Énergie",
+      "engine_code": "Code moteur",
+      "displacement": "Cylindrée",
+      "first_registration": "Première mise en circulation"
+    }
+  }
+}
